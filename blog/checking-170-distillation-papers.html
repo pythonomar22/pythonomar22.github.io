@@ -2,15 +2,14 @@
 <html>
   <head>
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Checking 170 distillation papers against their own tables</title>
-    <link rel="stylesheet" type="text/css" href="../styles.css?v=2">
+    <title>Checking distillation papers</title>
+    <link rel="stylesheet" type="text/css" href="../styles.css?v=3">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
   </head>
   <body>
     <div class="post">
       <p><a href="../index.html">&larr; back</a></p>
-      <h1>Checking 170 distillation papers against their own tables</h1>
-      <p class="post-date">July 2026</p>
+      <h1>Checking distillation papers</h1>
 
       <p>On-policy distillation is a post-training technique where a student model generates its own solutions, a teacher model scores every token of them, and the student trains on that signal. It works well and everyone uses it. It's in the recipes of DeepSeek-v4, Qwen3, GLM-5, MiMo-v2.</p>
 
@@ -35,7 +34,7 @@
 
       <p>We took every method-versus-best-baseline comparison from the 52 papers with usable tables, 372 comparisons in total, and plotted each one against its benchmark's noise floor:</p>
 
-      <img src="figures/r1_noise_floor.png" alt="Every claimed improvement vs its benchmark's noise floor">
+      <img src="figures/r1_noise_floor.png?v=2" alt="Every claimed improvement vs its benchmark's noise floor">
 
       <p>94.4% of the comparisons (351 of 372) are inside the floor. If you restrict to the AIME-class benchmarks with 30 or 40 problems, it's 230 out of 230.</p>
 
@@ -53,7 +52,7 @@
 
       <p>So here's the version that survives: 62% of the Qwen3 base rows in this corpus (428 of 694) print a model string that does not identify what was measured. A bare "Qwen3-8B", with the thinking mode stated nowhere in the paper. Here is every such row for Qwen3-8B on AIME24:</p>
 
-      <img src="figures/r3_base_rows.png" alt="Every printed Qwen3-8B base row on AIME24">
+      <img src="figures/r3_base_rows.png?v=2" alt="Every printed Qwen3-8B base row on AIME24">
 
       <p>The bare rows span 21 to 76. And the spread isn't mysterious. Three rows that looked like outliers turned out to be, once I read the papers carefully: one evaluated with thinking disabled (25.4), one with an 8,192 token generation cap (38.3), one with a 16,384 token cap (58.1). All three numbers are correct as printed. They're just not comparable to anyone else's table, and nothing in the tables tells you that. 42 of 63 papers never state whether thinking mode was on. 12 of 63 fully state their sampling settings in the main text.</p>
 
@@ -65,7 +64,7 @@
 
       <p>45 of the 63 papers we checked name at least one rival 2026 variant in their related work section. Several call one "the closest prior work." Then in the results table, the opponents are the same 2024-era anchors every other paper fights: SFT, GKD, vanilla OPD, SDPO, GRPO.</p>
 
-      <img src="figures/r4_named_vs_benchmarked.png" alt="Named vs actually benchmarked">
+      <img src="figures/r4_named_vs_benchmarked.png?v=2" alt="Named vs actually benchmarked">
 
       <p>RLSD is the exception; it actually appears in seven other papers' tables. TIP appears in two. Nearly everything else appears in zero or one.</p>
 
@@ -77,7 +76,7 @@
 
       <p>Take all 52 papers' pooled z-scores against their own best baselines:</p>
 
-      <img src="figures/r2_zdist.png" alt="Paper-level z distribution">
+      <img src="figures/r2_zdist.png?v=2" alt="Paper-level z distribution">
 
       <p>86.5% of papers report a positive pooled delta. The quantiles of the distribution (0.24, 0.62, 1.16, 1.92) sit nearly on top of a standard normal truncated at zero (0.32, 0.67, 1.15, 1.64), which is what you'd get by publishing zero-mean noise whenever it comes out positive.</p>
 
@@ -99,20 +98,6 @@
       <p>ShortOPD is the strongest result in the corpus and it also quietly makes the whole point of this post. Its huge z comes from comparing on-policy recovery of pruned models against off-policy baselines. Against its nearest on-policy competitor, its own Figure 5(b) shows vanilla OPD matching it within about two points. The most significant paper in the variant literature is significant because the 2024 technique it decorates is good.</p>
 
       <p>So the total yield of ~170 papers, by the literature's own strictest screen: one result in a different model class, one well-seeded win, two unseeded wins, and one confirmation of vanilla OPD wearing a variant's name.</p>
-
-      <h3>What would fix this</h3>
-
-      <p>I don't think this is a story about dishonest authors. It's three structural problems stacking: benchmarks that are two or three orders of magnitude too small for the claimed effects, evaluations whose most score-moving settings go unstated, and no habit of testing against last month's variant instead of 2024's anchors.</p>
-
-      <p>The fixes are cheap. State the eval config; the cross-lab cells that agree are exactly the ones that share checkpoint variant, thinking mode, temperature, top-p, max tokens, and k. Report a confidence interval against your best baseline; it's one line of arithmetic. Benchmark the method you call closest prior work; you already built the harness. And size the benchmark to the claim; a 1.6 point claim needs thousands of problems. The tight -Base cells show the field already owns an instrument with roughly 1 point of cross-lab resolution. It just mostly doesn't use it.</p>
-
-      <h3>Limitations</h3>
-
-      <p>The extraction was done by LLM agents, which is exactly the kind of thing you should distrust, so we audited it: 33 of the 52 papers were verified row by row against the source tables, about 1,300 numbers re-derived, 2 wrong cells found. Both were corrected and neither changes any number above. That's a cell error rate around 0.2%.</p>
-
-      <p>Other things to know before quoting this. The noise floor model is between-problem binomial and excludes seed variance, which makes the floors conservative. The pairing correlation between methods is unknown, hence the sweep. "Best baseline" is each paper's own order statistic, which biases the literature's claimed deltas upward, also conservative for us. The four analyses share one dataset, so they're complementary views, not independent confirmations. The configuration-complete cells may partly agree because labs copy the same harness, not just because they disclose; separating those would take an experiment we haven't run. Corpus is arXiv, January to July 2026, cutoff July 21. An earlier internal version of the stratified cross-lab number was 2.7 points; the 0.6 to 2.3 above is what I can reproduce from the released files, and each stratified cell has only 3 to 5 papers, so it's noisy.</p>
-
-      <p>The extraction files, the four analysis scripts, the preregistration (including the part where its planned analysis died on contact with the data), and the verification log are released with this post. If you find a third wrong cell, tell me.</p>
 
       <p><a href="../index.html">&larr; back</a></p>
     </div>
