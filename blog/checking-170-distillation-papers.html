@@ -11,38 +11,40 @@
       <p><a href="../index.html">&larr; back</a></p>
       <h1>Checking distillation papers</h1>
 
-      <p>On-policy distillation is a post-training technique where a student model generates its own solutions, a teacher model scores every token of them, and the student trains on that signal. It works well and everyone uses it. It's in the recipes of DeepSeek-v4, Qwen3, GLM-5, MiMo-v2.</p>
+      <p>On-policy distillation is a post-training technique where a student model generates its own solutions, a teacher model scores every token of them, and the student trains on that signal. It works well and everyone uses it. It's in the recipes of a lot of modern open-source models (<a href="https://arxiv.org/abs/2505.09388" target="_blank" rel="noopener">Qwen3</a>, <a href="https://arxiv.org/abs/2505.07608" target="_blank" rel="noopener">MiMo</a>, among others), and was used in <a href="https://cursor.com/blog/composer-2-5" target="_blank" rel="noopener">Composer 2.5</a> training. If you want a longer explanation of the technique itself, <a href="https://thinkingmachines.ai/blog/on-policy-distillation" target="_blank" rel="noopener">Thinking Machines has a good one</a>.</p>
 
       <p>Because it works, arXiv now gets a new variant of it roughly once a day. Between January and July of 2026 there were about 200 papers proposing tweaks: apply the loss only to high-entropy tokens, or only to "teachable" tokens, or weight by position, or gate by sign. Change the divergence to forward KL, or a forward/reverse mixture, or a power divergence, or a trust region. Use two teachers, or a reward-gated teacher, or the model itself with the answer in its context. Nearly every one of these papers reports beating the strongest baseline by a point or two on competition math benchmarks, and the median claimed improvement is 1.63 points.</p>
 
-      <p>Two obvious questions:</p>
+      <p>For new research in this field, it's natural to ask:</p>
 
       <ol>
         <li>Can the benchmarks these papers use even measure a 1.6 point improvement?</li>
         <li>Do the variants ever get tested against each other?</li>
       </ol>
 
-      <p>I spent a week checking, using nothing but the numbers the papers themselves printed. We extracted every main results table from the ~170 papers that were actually about text reasoning (the rest were vision or robotics or theory), ran three extraction passes, verified a third of the papers cell by cell against the original tables, and did statistics. No GPUs were involved. Everything here can be recomputed from the released files in about five minutes.</p>
+      <p>I tried to check and answer this myself, kind of motivated by the sheer number of papers that appeared in OPD/OPSD since the beginning of the summer.</p>
 
-      <p>Before the bad news, the good news, because it's important and it's easy to lose track of in what follows: the technique itself is fine. Across papers, the median gain over the untrained student is about 10 points, and a third of those gains clear even the most pessimistic noise floor you can apply to a single benchmark. Vanilla on-policy distillation earns its place in the recipes. The question is only about the layer of variants on top.</p>
+      <p>Across papers, the median gain over the untrained student is about 10 points, and a third of those gains clear even the most pessimistic noise floor you can apply to a single benchmark. Vanilla on-policy distillation earns its place in the recipes. So to be clear, the question is only about the layer of variants on top.</p>
 
       <h3>Can the benchmarks measure a 1.6 point improvement?</h3>
 
-      <p>AIME24, the most popular benchmark in this literature, has 30 problems.</p>
+      <p><a href="https://artofproblemsolving.com/wiki/index.php/American_Invitational_Mathematics_Examination" target="_blank" rel="noopener">AIME24</a>, the most popular benchmark in this literature, has 30 problems.</p>
 
       <p>If a model solves each problem with probability around 0.4, the standard deviation of its score from problem sampling alone is sqrt(0.4 &times; 0.6 / 30), which is about 9 points. So a 95% confidence interval on a single AIME24 score is about plus or minus 17.5 points. The typical paper is claiming a 1.6 point win inside that.</p>
 
-      <p>We took every method-versus-best-baseline comparison from the 52 papers with usable tables, 372 comparisons in total, and plotted each one against its benchmark's noise floor:</p>
+      <p>I just took every method-versus-best-baseline comparison from the 52 papers with usable tables, 372 comparisons in total, and plotted each one against its benchmark's noise floor:</p>
 
       <img src="figures/r1_noise_floor.png?v=2" alt="Every claimed improvement vs its benchmark's noise floor">
 
       <p>94.4% of the comparisons (351 of 372) are inside the floor. If you restrict to the AIME-class benchmarks with 30 or 40 problems, it's 230 out of 230.</p>
 
-      <p>The obvious objection is that these comparisons are paired. Both models saw the same 30 problems, so some of the noise cancels, and the cancellation depends on how correlated the two models' per-problem outcomes are. Papers don't report that correlation, so we swept it. At a correlation of 0.5, 94.1% of the deltas are still inside the floor. At 0.8, it's 88.7%. Even at 0.95, which would be a strange thing to assume about two different training runs, 74% of the claimed improvements can't be distinguished from noise.</p>
+      <p>The obvious objection is that these comparisons are paired. Both models saw the same 30 problems, so some of the noise cancels, and the cancellation depends on how correlated the two models' per-problem outcomes are. Papers don't report that correlation, so I swept it. At a correlation of 0.5, 94.1% of the deltas are still inside the floor. At 0.8, it's 88.7%. Even at 0.95, which I think would be a pretty strange thing to assume about two different training runs, 74% of the claimed improvements can't be distinguished from noise.</p>
 
-      <p>Maybe single benchmarks are unfair and papers should get credit for their whole suite. We pooled each paper's full set of benchmarks: 46 of 52 papers can't reject equality with their own best baseline at 95% on their own pooled evidence.</p>
+      <p>Maybe single benchmarks are unfair and papers should get credit for their whole suite. I pooled each paper's full set of benchmarks: 46 of 52 papers can't reject equality with their own best baseline at 95% on their own pooled evidence.</p>
 
       <p>To detect the median claimed effect at 80% power, you need roughly 16,000 problems per arm. AIME24 has 30. And all of these floors ignore seed variance, because papers almost never report seeds. Known seed noise on benchmarks this size is another point or two, so the numbers above are underestimates.</p>
+
+      <p>Of course, many benchmarks in ML/AI/LLM that people use today have a very small number of samples, and so this isn't something that's unknown to the average researcher. People have written whole papers about it (<a href="https://arxiv.org/abs/2411.00640" target="_blank" rel="noopener">Miller 2024</a>, <a href="https://arxiv.org/abs/2504.07086" target="_blank" rel="noopener">Hochlehnert et al. 2025</a>). But it's one thing to know it abstractly and another to watch a literature operate as if it weren't true: most of the papers in this corpus report no uncertainty at all, and a 1.6 point win on 30 problems keeps getting bolded as the headline result anyway.</p>
 
       <h3>Can you at least compare numbers across papers?</h3>
 
@@ -54,50 +56,42 @@
 
       <img src="figures/r3_base_rows.png?v=2" alt="Every printed Qwen3-8B base row on AIME24">
 
-      <p>The bare rows span 21 to 76. And the spread isn't mysterious. Three rows that looked like outliers turned out to be, once I read the papers carefully: one evaluated with thinking disabled (25.4), one with an 8,192 token generation cap (38.3), one with a 16,384 token cap (58.1). All three numbers are correct as printed. They're just not comparable to anyone else's table, and nothing in the tables tells you that. 42 of 63 papers never state whether thinking mode was on. 12 of 63 fully state their sampling settings in the main text.</p>
+      <p>The bare rows span 21 to 76. Three rows that looked like outliers turned out to be, once I read the papers carefully: one evaluated with thinking disabled (25.4), one with an 8,192 token generation cap (38.3), one with a 16,384 token cap (58.1). All three numbers are correct as printed. They're just not comparable to anyone else's table, and nothing in the tables tells you that. 42 of 63 papers never state whether thinking mode was on. 12 of 63 fully state their sampling settings in the main text.</p>
 
       <p>Meanwhile, where the printed name does pin down the checkpoint, the numbers are fine. Papers reporting the pretrained -Base checkpoints agree to within about a point of each other (std 0.9 to 1.5 across labs). Where the thinking mode is identifiable, Qwen3-8B on AIME24 lands between 74.2 and 76.5 across five papers. When I stratify by everything the careful papers disclose, the leftover cross-lab spread is about 0.6 to 2.3 points, depending on the cell.</p>
 
-      <p>So labs can reproduce each other when the reporting allows it. But notice the sizes: the best-case cross-lab noise is about the same size as the median claimed effect, 1.6 points. Even if every paper disclosed everything, a 1.6 point cross-paper comparison would be borderline. As printed, it's hopeless.</p>
+      <p>So labs can reproduce each other when the reporting allows it. But notice the sizes: the best-case cross-lab noise is about the same size as the median claimed effect, 1.6 points. Even if every paper disclosed everything, a 1.6 point cross-paper comparison would be borderline. Seems kind of hopeless.</p>
 
       <h3>Do the variants ever get tested against each other?</h3>
 
-      <p>45 of the 63 papers we checked name at least one rival 2026 variant in their related work section. Several call one "the closest prior work." Then in the results table, the opponents are the same 2024-era anchors every other paper fights: SFT, GKD, vanilla OPD, SDPO, GRPO.</p>
+      <p>45 of the 63 papers I checked name at least one rival 2026 variant in their related work section. Several call one "the closest prior work." Then in the results table, the opponents are the same 2024-era anchors every other paper fights: SFT, <a href="https://arxiv.org/abs/2306.13649" target="_blank" rel="noopener">GKD</a>, vanilla OPD, SDPO, <a href="https://arxiv.org/abs/2402.03300" target="_blank" rel="noopener">GRPO</a>.</p>
 
       <img src="figures/r4_named_vs_benchmarked.png?v=2" alt="Named vs actually benchmarked">
 
       <p>RLSD is the exception; it actually appears in seven other papers' tables. TIP appears in two. Nearly everything else appears in zero or one.</p>
 
-      <p>We had preregistered a test for this literature: when a variant shows up in a later paper's table, regress its replicated effect on its originally claimed effect and see how much survives. Under the preregistration's comparability rules, exactly two methods have ever been re-measured. The regression can't be run. I originally thought that would be a boring failure to report, but it might be the most informative number in the project: the literature does not produce the data you would need to check the literature.</p>
-
-      <p>If the variants were compounding you'd also expect the margins to grow. They don't. The claimed improvement over the frozen anchors is flat across seven months (r = 0.17) and flat against a rigor score (r = 0.03). Also, 90% of the papers train only Qwen students, so everything above is conditioned on one model family.</p>
-
-      <h3>What do the wins look like in aggregate?</h3>
-
-      <p>Take all 52 papers' pooled z-scores against their own best baselines:</p>
-
-      <img src="figures/r2_zdist.png?v=2" alt="Paper-level z distribution">
-
-      <p>86.5% of papers report a positive pooled delta. The quantiles of the distribution (0.24, 0.62, 1.16, 1.92) sit nearly on top of a standard normal truncated at zero (0.32, 0.67, 1.15, 1.64), which is what you'd get by publishing zero-mean noise whenever it comes out positive.</p>
-
-      <p>I want to be careful here, because this is where it would be easy to overclaim. A funnel test asks whether noisier benchmarks carry bigger claimed effects, which pure selection on noise predicts. Ours comes out flat (r = -0.11). So the data are consistent with two stories: the variant layer is selected noise, or the variant layer is a real but uniform 1.5-ish point effect, for example from baselines that are systematically under-tuned. The published record cannot tell these apart. I have opinions about which is more likely, but the honest statement is that a literature of this size, after 200 papers, has not produced the evidence to distinguish "our methods do something" from "our methods do nothing."</p>
+      <p>I did something else, as sort of a test for this literature: when a variant shows up in a later paper's table, regress its replicated effect on its originally claimed effect and see how much survives. Under the preregistration's comparability rules, exactly two methods have ever been re-measured. The regression can't be run. I originally thought that would be a boring failure to report, but it could be important.</p>
 
       <h3>The five papers that survive</h3>
 
-      <p>Five of 52 papers clear z = 1.96 on their own pooled evidence. We verified every number in all five by hand against their tables. They check out, and they're worth naming:</p>
+      <p>Five of 52 papers clear z = 1.96 on their own pooled evidence. I verified every number in all five by hand against their tables. They check out, and they're worth naming:</p>
 
       <table>
         <tr><th>paper</th><th>z</th><th>note</th></tr>
-        <tr><td>ShortOPD</td><td>11.3</td><td>recovering pruned models; see below</td></tr>
-        <tr><td>CADENCE</td><td>2.8</td><td>one of the only papers in the corpus with 5 seeds</td></tr>
-        <tr><td>dOPSD</td><td>2.4</td><td>diffusion language models, where there's plausibly real headroom</td></tr>
-        <tr><td>TOPD</td><td>2.3</td><td>trust-region OPD, point estimates only</td></tr>
-        <tr><td>PASS</td><td>2.1</td><td>process-advantage shaping, point estimates only</td></tr>
+        <tr><td><a href="https://arxiv.org/abs/2607.13124" target="_blank" rel="noopener">ShortOPD</a></td><td>11.3</td><td>recovering pruned models; see below</td></tr>
+        <tr><td><a href="https://arxiv.org/abs/2607.16955" target="_blank" rel="noopener">CADENCE</a></td><td>2.8</td><td>one of the only papers in the corpus with 5 seeds</td></tr>
+        <tr><td><a href="https://arxiv.org/abs/2607.04428" target="_blank" rel="noopener">dOPSD</a></td><td>2.4</td><td>diffusion language models, where there's plausibly real headroom</td></tr>
+        <tr><td><a href="https://arxiv.org/abs/2607.04751" target="_blank" rel="noopener">TOPD</a></td><td>2.3</td><td>trust-region OPD, point estimates only</td></tr>
+        <tr><td><a href="https://arxiv.org/abs/2606.29296" target="_blank" rel="noopener">PASS</a></td><td>2.1</td><td>process-advantage shaping, point estimates only</td></tr>
       </table>
 
       <p>ShortOPD is the strongest result in the corpus and it also quietly makes the whole point of this post. Its huge z comes from comparing on-policy recovery of pruned models against off-policy baselines. Against its nearest on-policy competitor, its own Figure 5(b) shows vanilla OPD matching it within about two points. The most significant paper in the variant literature is significant because the 2024 technique it decorates is good.</p>
 
-      <p>So the total yield of ~170 papers, by the literature's own strictest screen: one result in a different model class, one well-seeded win, two unseeded wins, and one confirmation of vanilla OPD wearing a variant's name.</p>
+      <h3>What would fix this</h3>
+
+      <p>I want to be careful about what I'm actually claiming here, because I don't think this is an OPD story, and I definitely don't think it's a story about dishonest authors. Some of what's in this post is probably just what any newcomer sees the first time they read a literature end to end; I hadn't worked in this area before this summer, and people who have been in a field for years have usually made peace with its habits in a way I haven't yet. But the specific habits are not unique to OPD, and from what I can tell they're getting more common across AI, not less. Deep RL went through the same thing in 2017, when <a href="https://arxiv.org/abs/1709.06560" target="_blank" rel="noopener">Henderson et al.</a> showed seed variance swamping claimed improvements. Recommender systems went through it in 2019, when <a href="https://arxiv.org/abs/1907.06902" target="_blank" rel="noopener">Dacrema et al.</a> found most published "improvements" lost to tuned baselines. <a href="https://arxiv.org/abs/2304.15004" target="_blank" rel="noopener">Schaeffer et al.</a> dissolved emergent abilities into measurement choices, and <a href="https://arxiv.org/abs/2504.07086" target="_blank" rel="noopener">Hochlehnert et al.</a> re-ran a year of RLVR reasoning results and watched most of the margins evaporate. Small benchmarks, unstated configs, and no replication norms are close to the default state of any fast-moving corner of the field. The only thing unusual about OPD is the volume: when a couple hundred papers a year decorate one technique, the machinery that is supposed to separate real effects from noise gets stress-tested in public, and you can measure the results with nothing but the papers' own tables.</p>
+
+      <p>The fixes are cheap. State the eval config; the cross-lab cells that agree are exactly the ones that share checkpoint variant, thinking mode, temperature, top-p, max tokens, and k. Report a confidence interval against your best baseline; it's one line of arithmetic. Benchmark the method you call closest prior work; you already built the harness. And size the benchmark to the claim; a 1.6 point claim needs thousands of problems. The tight -Base cells show the field already owns an instrument with roughly 1 point of cross-lab resolution. It just mostly doesn't use it.</p>
 
       <p><a href="../index.html">&larr; back</a></p>
     </div>
