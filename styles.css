@@ -113,8 +113,44 @@ img {
 }
 
 #tab-about:checked ~ .tab-panels #about,
-#tab-writings:checked ~ .tab-panels #writings {
+#tab-writings:checked ~ .tab-panels #writings,
+#tab-blog:checked ~ .tab-panels #blog {
   display: block;
+}
+
+.post {
+  max-width: 650px;
+  margin: 0 auto;
+  padding-bottom: 50px;
+}
+
+.post h1 {
+  margin-top: 30px;
+}
+
+.post h3 {
+  margin-top: 30px;
+  font-size: 16px;
+}
+
+.post img {
+  max-width: 100%;
+  margin: 10px 0 20px;
+}
+
+.post table {
+  border-collapse: collapse;
+}
+
+.post th, .post td {
+  border: 1px solid #ddd;
+  padding: 6px 10px;
+  text-align: left;
+}
+
+.post .post-date {
+  color: #666;
+  margin-bottom: 30px;
 }
 
 @media print, screen and (max-width: 960px) {
