@@ -14,7 +14,7 @@
       <p><a href="../index.html">&larr; back</a></p>
       <h1>The broken half of the depth dial</h1>
 
-      <p>Looped models have been becoming increasingly popular. Here's a good Github that I look at from time to time: <a href="https://huskydoge.github.io/Awesome-Loop-Models/index.html" target="_blank" rel="noopener">https://huskydoge.github.io/Awesome-Loop-Models/index.html</a>.</p>
+      <p>Looped models have been becoming increasingly popular. Here's a good Github that I look at from time to time: <a href="https://huskydoge.github.io/Awesome-Loop-Models/index.html" target="_blank" rel="noopener">here</a>.</p>
 
       <p>A looped model runs one shared transformer block \(r\) times per token before emitting anything. <a href="https://arxiv.org/abs/2510.25741" target="_blank" rel="noopener">Ouro</a> is the current billion-scale example: a 24-layer stack, looped, pretrained at \(r=4\), so the effective depth at the default setting is 96 layers. The loop count \(r\) is a dial you can turn at inference.</p>
 
@@ -59,7 +59,7 @@
 
       <p>Another thing that I wanted to see and was interested in is seeing if this RL could teach the model to generalize to unseen depths. That is, I left \(r=24\) and \(r=32\) out of the rollouts, as in I never rolled out prompts at those depths, but I evaluated them later.</p>
 
-      <p>Prompts come from DeepScaleR, decontaminated against every eval set and difficulty-filtered by pass@8 down to 8,932 training prompts. <a href="https://openreview.net/forum?id=I6GzDCne7U" target="_blank" rel="noopener">https://openreview.net/forum?id=I6GzDCne7U</a></p>
+      <p>Prompts come from <a href="https://openreview.net/forum?id=I6GzDCne7U" target="_blank" rel="noopener">DeepScaleR</a>, decontaminated against every eval set and difficulty-filtered by pass@8 down to 8,932 training prompts.</p>
 
       <p>For a stronger base model, I first ran a small SFT/STARS for one epoch on DeepMath. I randomly varied the depth across \(r \in \{2,4,6,8,12,16\}\). This repairs \(r=16\) from 0.058 to 0.620 and \(r=32\) from 0.000 to 0.178. I referred to this as W-A.</p>
 
@@ -170,12 +170,7 @@
 
       <p>While writing this, GPT has referred me to some more works about memory-budget separation. There may also be limits to treating loop depth exactly like token-level test-time compute. Extra loops add computation, but unlike a longer chain of thought they do not automatically create a larger explicit scratchpad.</p>
 
-      <p>Checkpoints are available here:</p>
-
-      <ul>
-        <li>W-A, the random-depth SFT baseline: <a href="https://huggingface.co/omar81939/Ouro-1.4B-Thinking-depth-SFT" target="_blank" rel="noopener">https://huggingface.co/omar81939/Ouro-1.4B-Thinking-depth-SFT</a></li>
-        <li>GRPO at step 400: <a href="https://huggingface.co/omar81939/Ouro-1.4B-Thinking-depth-GRPO" target="_blank" rel="noopener">https://huggingface.co/omar81939/Ouro-1.4B-Thinking-depth-GRPO</a></li>
-      </ul>
+      <p>Checkpoints are <a href="https://huggingface.co/collections/omar81939/the-broken-half-of-the-depth-dial-6a7d92edb77fccb49717c171" target="_blank" rel="noopener">here</a>.</p>
 
       <p><a href="../index.html">&larr; back</a></p>
     </main>
