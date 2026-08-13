@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="description" content="Can verifier-based RL repair looped models beyond their trained depth?">
-    <title>The broken half of the depth dial</title>
+    <title>DIAL: GRPO on looped models</title>
     <link rel="stylesheet" type="text/css" href="../styles.css?v=4">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&amp;display=swap" rel="stylesheet">
     <script defer src="https://cdn.jsdelivr.net/npm/mathjax@4.0.0/tex-svg.js"></script>
@@ -12,7 +12,7 @@
   <body>
     <main class="post loop-post">
       <p><a href="../index.html">&larr; back</a></p>
-      <h1>The broken half of the depth dial</h1>
+      <h1>DIAL: GRPO on looped models</h1>
 
       <p>Looped models have been becoming increasingly popular. Here's a good Github that I look at from time to time: <a href="https://huskydoge.github.io/Awesome-Loop-Models/index.html" target="_blank" rel="noopener">here</a>.</p>
 
@@ -48,6 +48,8 @@
       <h2>1. Loop depth as an action</h2>
 
       <p>I ran GRPO with depth as part of the action.</p>
+
+      <p>I refer to this as DIAL.</p>
 
       <p>For each prompt I roll out at every depth in \(D = \{2, 4, 8, 16\}\): 48 prompts per step, 4 generations per depth, so 48 × 4 × 4 = 768 sequences per step. Sampling is temperature 1.0, top-p 1.0, with a 2,048-token response budget. The reward is 1 if the first boxed answer is verifier-correct, plus some other stuff in bonuses. A depth head learns a policy over \(r\) against</p>
 
@@ -170,7 +172,7 @@
 
       <p>While writing this, GPT has referred me to some more works about memory-budget separation. There may also be limits to treating loop depth exactly like token-level test-time compute. Extra loops add computation, but unlike a longer chain of thought they do not automatically create a larger explicit scratchpad.</p>
 
-      <p>Checkpoints are <a href="https://huggingface.co/collections/omar81939/the-broken-half-of-the-depth-dial-6a7d92edb77fccb49717c171" target="_blank" rel="noopener">here</a>.</p>
+      <p>Checkpoints are <a href="https://huggingface.co/collections/omar81939/dial-grpo-on-looped-models-6a7d92edb77fccb49717c171" target="_blank" rel="noopener">here</a>.</p>
 
       <p><a href="../index.html">&larr; back</a></p>
     </main>
