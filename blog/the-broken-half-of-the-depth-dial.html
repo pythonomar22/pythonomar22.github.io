@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Can verifier-based RL repair looped models beyond their trained depth?">
+    <title>The broken half of the depth dial</title>
+    <link rel="stylesheet" type="text/css" href="../styles.css?v=4">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&amp;display=swap" rel="stylesheet">
+    <script defer src="https://cdn.jsdelivr.net/npm/mathjax@4.0.0/tex-svg.js"></script>
+  </head>
+  <body>
+    <main class="post loop-post">
+      <p><a href="../index.html">&larr; back</a></p>
+      <h1>The broken half of the depth dial</h1>
+
+      <p>Looped models have been becoming increasingly popular. Here's a good Github that I look at from time to time: <a href="https://huskydoge.github.io/Awesome-Loop-Models/index.html" target="_blank" rel="noopener">https://huskydoge.github.io/Awesome-Loop-Models/index.html</a>.</p>
+
+      <p>A looped model runs one shared transformer block \(r\) times per token before emitting anything. <a href="https://arxiv.org/abs/2510.25741" target="_blank" rel="noopener">Ouro</a> is the current billion-scale example: a 24-layer stack, looped, pretrained at \(r=4\), so the effective depth at the default setting is 96 layers. The loop count \(r\) is a dial you can turn at inference.</p>
+
+      <p>One of the problems with looped models is that models break down beyond the trained horizon. Here is Ouro-1.4B-Thinking on MATH-500 (greedy, 3,072-token budget, n=500) at different \(r\):</p>
+
+      <div class="table-wrap">
+        <table class="results-table dial-table">
+          <thead>
+            <tr><th>\(r\)</th><th>1</th><th>2</th><th>3</th><th>4</th><th>6</th><th>8</th><th>12</th><th>16</th><th>24</th><th>32</th></tr>
+          </thead>
+          <tbody>
+            <tr><th>accuracy</th><td>0.188</td><td>0.636</td><td>0.722</td><td>0.710</td><td>0.712</td><td>0.678</td><td>0.348</td><td>0.058</td><td>0.004</td><td>0.000</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <figure class="blog-figure">
+        <picture>
+          <source srcset="figures/looped/fig1-dial.svg" type="image/svg+xml">
+          <img src="figures/looped/fig1-dial.png" alt="Base Ouro-1.4B-Thinking accuracy against loop count r">
+        </picture>
+        <figcaption><em>Figure 1. MATH-500 accuracy of Ouro-1.4B-Thinking as the loop count is turned from \(r=1\) to \(r=32\) (greedy, 3,072-token budget, n=500). The plateau holds through \(r=8\) and then falls off a cliff: 0.058 at \(r=16\), 0.000 at \(r=32\).</em></figcaption>
+      </figure>
+
+      <p>For reference, Ouro was trained at \(r = 4\).</p>
+
+      <p>The analogy that I thought was somewhat similar was related to post-training and reasoning, before o1/o3-style RL. CoT made extra tokens useful through prompting, but it wasn't until reasoning and RL that the ability to use extra tokens became a lot more productive, and something that could be scaled.</p>
+
+      <p>I wanted to see if the same held in Ouro. That is, Ouro already knows how to benefit from recurrent depth up to its trained horizon (\(r=4\)), and I wanted to see if RL could fix some of that falloff, and convert deeper \(r\) into useful compute.</p>
+
+      <h2>1. Loop depth as an action</h2>
+
+      <p>I ran GRPO with depth as part of the action.</p>
+
+      <p>For each prompt I roll out at every depth in \(D = \{2, 4, 8, 16\}\): 48 prompts per step, 4 generations per depth, so 48 × 4 × 4 = 768 sequences per step. Sampling is temperature 1.0, top-p 1.0, with a 2,048-token response budget. The reward is 1 if the first boxed answer is verifier-correct, plus some other stuff in bonuses. A depth head learns a policy over \(r\) against</p>
+
+      <div class="display-math">\[Q(r) = \text{mean reward} - \lambda \cdot (r/16),\]</div>
+
+      <p>with \(\lambda = 0.1\). The shorthand "reward = correctness \(-\ 0.1 \cdot (r/16)\)" is good enough to think about it.</p>
+
+      <p>I compute advantages across depth groups. So I roll out the same prompt at every depth, and attach the cost \(Q(r)\) to depth. And so an \(r=16\) trajectory has to be good enough to justify spending the additional loops relative to the cheaper trajectories for that same problem. The lambda times \(r/16\) is a linear price on loop count.</p>
+
+      <p>Another thing that I wanted to see and was interested in is seeing if this RL could teach the model to generalize to unseen depths. That is, I left \(r=24\) and \(r=32\) out of the rollouts, as in I never rolled out prompts at those depths, but I evaluated them later.</p>
+
+      <p>Prompts come from DeepScaleR, decontaminated against every eval set and difficulty-filtered by pass@8 down to 8,932 training prompts. <a href="https://openreview.net/forum?id=I6GzDCne7U" target="_blank" rel="noopener">https://openreview.net/forum?id=I6GzDCne7U</a></p>
+
+      <p>For a stronger base model, I first ran a small SFT/STARS for one epoch on DeepMath. I randomly varied the depth across \(r \in \{2,4,6,8,12,16\}\). This repairs \(r=16\) from 0.058 to 0.620 and \(r=32\) from 0.000 to 0.178. I referred to this as W-A.</p>
+
+      <h2>2. Four hundred steps</h2>
+
+      <p>I then train from W-A for 400 RL steps on an 8xH100 node. Every 50 steps I evaluated at \(r \in \{4, 16, 24, 32\}\).</p>
+
+      <p>MATH-500 accuracy, greedy, n=500 (binomial standard error around 2.2 points):</p>
+
+      <div class="table-wrap">
+        <table class="results-table">
+          <thead>
+            <tr><th>step</th><th>\(r=4\)</th><th>\(r=16\)</th><th>\(r=24\)</th><th>\(r=32\)</th></tr>
+          </thead>
+          <tbody>
+            <tr><th>W-A baseline</th><td>0.676</td><td>0.620</td><td>0.378</td><td>0.178</td></tr>
+            <tr><th>50</th><td>0.816</td><td>0.734</td><td>0.554</td><td>0.316</td></tr>
+            <tr><th>100</th><td>0.806</td><td>0.772</td><td>0.584</td><td>0.378</td></tr>
+            <tr><th>150</th><td>0.814</td><td>0.784</td><td>0.636</td><td>0.390</td></tr>
+            <tr><th>200</th><td>0.798</td><td>0.784</td><td>0.618</td><td>0.440</td></tr>
+            <tr><th>250</th><td>0.830</td><td>0.786</td><td>0.652</td><td>0.412</td></tr>
+            <tr><th>300</th><td>0.830</td><td>0.796</td><td>0.662</td><td>0.430</td></tr>
+            <tr><th>350</th><td>0.824</td><td>0.806</td><td>0.620</td><td>0.428</td></tr>
+            <tr><th>400</th><td>0.840</td><td>0.802</td><td>0.660</td><td>0.478</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <figure class="blog-figure">
+        <picture>
+          <source srcset="figures/looped/fig4-trajectory.svg" type="image/svg+xml">
+          <img src="figures/looped/fig4-trajectory.png" alt="MATH-500 accuracy at each evaluated depth across 400 RL steps">
+        </picture>
+        <figcaption><em>Figure 2. The same table as a trajectory. Step 0 is the W-A baseline. Every depth is above its starting point by step 50; the two never-trained depths (\(r=24\), \(r=32\)) keep moving afterwards while the trained ones flatten.</em></figcaption>
+      </figure>
+
+      <figure class="blog-figure blog-figure-wide">
+        <picture>
+          <source srcset="figures/looped/fig3-bars-by-depth.svg" type="image/svg+xml">
+          <img src="figures/looped/fig3-bars-by-depth.png" alt="Accuracy by model at each depth">
+        </picture>
+        <figcaption><em>Figure 3. Base Ouro, W-A, and GRPO at each evaluated depth (MATH-500, greedy, n=500). Base Ouro is at 0.004 and 0.000 in the two right-hand panels, which is why the SFT baseline rather than base Ouro is the thing to beat.</em></figcaption>
+      </figure>
+
+      <h2>3. Depth extrapolation</h2>
+
+      <p>Suppose RL had added 20 points of accuracy at every depth. Then, the \(r=32\) model would look much better, but the actual falloff beyond the training \(r=4\) would be the same, not really pointing towards the model had gotten better at unseen depths. And so I measured the falloff from \(r=16\) (which again, was the deepest depth used during RL). And we compare the falloffs from W-A versus our GRPO.</p>
+
+      <p>Define</p>
+
+      <div class="display-math">\[W(r) = \left[A_{\text{GRPO}}(r) - A_{\text{GRPO}}(16)\right] - \left[A_{\text{WA}}(r) - A_{\text{WA}}(16)\right]\]</div>
+
+      <p>for \(r\) in \(\{24, 32\}\).</p>
+
+      <div class="table-wrap table-wrap-wide">
+        <table class="results-table comparison-table">
+          <thead>
+            <tr><th>depth</th><th>baseline acc / trunc</th><th>DIAL acc / trunc</th><th>Δ acc</th><th>widening vs r4 (97.5% LB)</th><th>\(W(r)\) vs r16 (97.5% LB)</th></tr>
+          </thead>
+          <tbody>
+            <tr><th>\(r=4\)</th><td>0.676 / 34.6%</td><td>0.840 / 6.2%</td><td>+16.4</td><td>—</td><td>—</td></tr>
+            <tr><th>\(r=16\)</th><td>0.620 / 38.8%</td><td>0.802 / 5.6%</td><td>+18.2</td><td>—</td><td>—</td></tr>
+            <tr><th>\(r=24\)</th><td>0.378 / 62.0%</td><td>0.660 / 8.6%</td><td>+28.2</td><td>+11.8 (+5.6)</td><td>+10.0 (+3.8)</td></tr>
+            <tr><th>\(r=32\)</th><td>0.178 / 84.4%</td><td>0.478 / 17.2%</td><td>+30.0</td><td>+13.6 (+6.6)</td><td>+11.8 (+4.8)</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <figure class="blog-figure">
+        <picture>
+          <source srcset="figures/looped/fig6-falloff.svg" type="image/svg+xml">
+          <img src="figures/looped/fig6-falloff.png" alt="Accuracy relative to each model's own r=16 score">
+        </picture>
+        <figcaption><em>Figure 4. \(W(r)\) drawn. Each model is re-based to its own \(r=16\) score, so both curves start at zero and only the falloff is visible. The arrows are \(W(24) = +10.0\) and \(W(32) = +11.8\) points.</em></figcaption>
+      </figure>
+
+      <figure class="blog-figure">
+        <picture>
+          <source srcset="figures/looped/fig2-depth-curves.svg" type="image/svg+xml">
+          <img src="figures/looped/fig2-depth-curves.png" alt="Accuracy against depth for base Ouro, W-A and GRPO">
+        </picture>
+        <figcaption><em>Figure 5. The same three models across depth on one axis. All three curves decline in \(r\); the gap between GRPO and W-A is what widens.</em></figcaption>
+      </figure>
+
+      <h2>4. Termination is not reasoning</h2>
+
+      <p>Clearly, our GRPO's own accuracy still falls with depth. As in, our RL did not make more loops buy more accuracy (the motivating intuition).</p>
+
+      <p>Manually looking at some of W-A's and GRPO's completions, GRPO seemed to fix some behavior around termination. At \(r=32\), W-A hits the 3,072-token limit on 84.4% of MATH-500 problems, compared with 17.2% after GRPO. When W-A does finish, it gets around 80% right, it just has degenerate behavior, repeating things like "Wait," and/or never producing a final boxed answer.</p>
+
+      <figure class="blog-figure blog-figure-wide">
+        <picture>
+          <source srcset="figures/looped/fig5-termination.svg" type="image/svg+xml">
+          <img src="figures/looped/fig5-termination.png" alt="Truncation rate and no-boxed-answer rate by depth">
+        </picture>
+        <figcaption><em>Figure 6. Share of generations that hit the 3,072-token budget (left) and that never emit a boxed answer (right), by depth. Both gaps are widest at \(r=32\).</em></figcaption>
+      </figure>
+
+      <p>This accounts for virtually all of the accuracy gain at \(r=32\). Of the 168 problems that GRPO gets right and W-A gets wrong, 160/168 are cases where W-A either ran out of tokens and had degenerate behavior or never produced a boxed answer. And so, at this depth, RL sort of just repairs degenerate behavior that base Ouro has.</p>
+
+      <h2>5. What was already known</h2>
+
+      <p>There is already quite a bit of work on learning how much recurrent compute to use. The <a href="https://arxiv.org/abs/2510.25741" target="_blank" rel="noopener">Ouro paper</a> has an early-exit mechanism that learns when to stop looping, but only within its trained depth. <a href="https://arxiv.org/abs/2602.10520" target="_blank" rel="noopener">RLTT</a> applies RL with verifiable rewards to Ouro, but keeps the model at \(r=4\). <a href="https://arxiv.org/abs/2603.19714" target="_blank" rel="noopener">LoopRPT</a> learns a per-token exit policy with RL, primarily to reduce average depth. And <a href="https://arxiv.org/abs/2606.29983" target="_blank" rel="noopener">Kuo et al.</a> use RL to learn a stopping policy for looped transformers, although on small algorithmic tasks.</p>
+
+      <p>The closest non-RL result is <a href="https://arxiv.org/abs/2605.26733" target="_blank" rel="noopener">STARS</a>, which uses random loop counts during supervised training to repair collapse at larger depths. My W-A baseline is essentially the simple version of that idea: randomize depth during SFT, then ask what RL adds on top.</p>
+
+      <p>So none of the individual ingredients here are new. The specific question I was interested in was narrower: can verifier-based RL train on a bounded set of depths, while explicitly pricing loop count, and improve behavior at deeper loop counts it never sees during RL?</p>
+
+      <p>While writing this, GPT has referred me to some more works about memory-budget separation. There may also be limits to treating loop depth exactly like token-level test-time compute. Extra loops add computation, but unlike a longer chain of thought they do not automatically create a larger explicit scratchpad.</p>
+
+      <p>Checkpoints are available here:</p>
+
+      <ul>
+        <li>W-A, the random-depth SFT baseline: <a href="https://huggingface.co/omar81939/Ouro-1.4B-Thinking-depth-SFT" target="_blank" rel="noopener">https://huggingface.co/omar81939/Ouro-1.4B-Thinking-depth-SFT</a></li>
+        <li>GRPO at step 400: <a href="https://huggingface.co/omar81939/Ouro-1.4B-Thinking-depth-GRPO" target="_blank" rel="noopener">https://huggingface.co/omar81939/Ouro-1.4B-Thinking-depth-GRPO</a></li>
+      </ul>
+
+      <p><a href="../index.html">&larr; back</a></p>
+    </main>
+  </body>
+</html>

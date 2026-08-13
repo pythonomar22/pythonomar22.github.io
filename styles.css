@@ -133,6 +133,11 @@ img {
   font-size: 16px;
 }
 
+.post h2 {
+  margin-top: 38px;
+  font-size: 19px;
+}
+
 .post img {
   max-width: 100%;
   margin: 10px 0 20px;
@@ -146,6 +151,72 @@ img {
   border: 1px solid #ddd;
   padding: 6px 10px;
   text-align: left;
+}
+
+.loop-post {
+  max-width: 720px;
+}
+
+.loop-post .display-math {
+  margin: 4px 0 24px;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.loop-post .table-wrap {
+  margin: 0 0 28px;
+  overflow-x: auto;
+}
+
+.loop-post .results-table {
+  width: 100%;
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.loop-post .results-table thead th {
+  background: #f5f5f3;
+  font-weight: 600;
+}
+
+.loop-post .results-table tbody th {
+  font-weight: 600;
+}
+
+.loop-post .results-table td:not(:first-child),
+.loop-post .results-table th:not(:first-child) {
+  text-align: right;
+}
+
+.loop-post .blog-figure {
+  margin: 30px 0 34px;
+}
+
+.loop-post .blog-figure picture,
+.loop-post .blog-figure img {
+  display: block;
+  width: 100%;
+}
+
+.loop-post .blog-figure img {
+  margin: 0;
+}
+
+.loop-post .blog-figure figcaption {
+  color: #555;
+  font-size: 13px;
+  line-height: 1.55;
+  margin-top: 10px;
+}
+
+@media screen and (min-width: 900px) {
+  .loop-post .blog-figure-wide,
+  .loop-post .table-wrap-wide {
+    width: min(1080px, calc(100vw - 80px));
+    margin-left: 50%;
+    transform: translateX(-50%);
+  }
 }
 
 .blog-date {
